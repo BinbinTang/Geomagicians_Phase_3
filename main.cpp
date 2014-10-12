@@ -18,14 +18,15 @@ using namespace std;
 
 double offset_x = 200;
 double offset_y = 200;
-
+int minX, minY, maxX, maxY;
 float k = 1;
 float tx = 0.0, ty=0.0;
 
 Trist triangles;
+vector<int> pointBuffer;
 int dy_secs = 0;
 
-bool DEBUG = true;
+bool DEBUG = false;
 
 // These three functions are for those who are not familiar with OpenGL, you can change these or even completely ignore them
 
@@ -75,43 +76,50 @@ void display(void)
 	LongInt px1, py1, px2, py2, px3, py3;
 
 	glTranslated(offset_x,offset_y,0);
-	vector<int> triIdx = triangles.getTriIdx();
-	for(vector<int>::iterator it = triIdx.begin(); it != triIdx.end(); ++it){
-		triangles.getVertexIdx((*it)<<3, p1Idx, p2Idx, p3Idx);
-		triangles.getPoint(p1Idx, px1, py1);
-		triangles.getPoint(p2Idx, px2, py2);
-		triangles.getPoint(p3Idx, px3, py3);
+	vector<TriRecord> record = triangles.getTriangles();
+	for(vector<TriRecord>::iterator it = record.begin(); it != record.end(); ++it){
+		if(it->getVisibility()){
+			int *vert = it->getVertices();
+			p1Idx = vert[0];
+			p2Idx = vert[1];
+			p3Idx = vert[2];
+			triangles.getPoint(p1Idx, px1, py1);
+			triangles.getPoint(p2Idx, px2, py2);
+			triangles.getPoint(p3Idx, px3, py3);
 
-		if (DEBUG) {
-			std::cout << "Drawing Tri" << (*it) << std::endl;
-			std::cout << p1Idx << "," << p2Idx << "," << p3Idx << std::endl;
-			std::cout << px1.printOut() << "," << py1.printOut() << std::endl;
-			std::cout << px2.printOut() << "," << py2.printOut() << std::endl;
-			std::cout << px3.printOut() << "," << py3.printOut() << std::endl;
-			std::cout << std::endl;
-		}
+			if (DEBUG) {
+				std::cout << "Drawing Tri" << it->getIdx() << std::endl;
+				std::cout << p1Idx << "," << p2Idx << "," << p3Idx << std::endl;
+				std::cout << px1.printOut() << "," << py1.printOut() << std::endl;
+				std::cout << px2.printOut() << "," << py2.printOut() << std::endl;
+				std::cout << px3.printOut() << "," << py3.printOut() << std::endl;
+				std::cout << std::endl;
+			}
 		
-		drawATriangle(px1.doubleValue(), py1.doubleValue(),
-					  px2.doubleValue(), py2.doubleValue(),
+			drawATriangle(px1.doubleValue(), py1.doubleValue(),
+						  px2.doubleValue(), py2.doubleValue(),
+						  px3.doubleValue(), py3.doubleValue());
+			drawALine(px1.doubleValue(), py1.doubleValue(),
+					  px2.doubleValue(), py2.doubleValue());
+			drawALine(px2.doubleValue(), py2.doubleValue(),
 					  px3.doubleValue(), py3.doubleValue());
-		drawALine(px1.doubleValue(), py1.doubleValue(),
-			      px2.doubleValue(), py2.doubleValue());
-		drawALine(px2.doubleValue(), py2.doubleValue(),
-			      px3.doubleValue(), py3.doubleValue());
-		drawALine(px3.doubleValue(), py3.doubleValue(),
-			      px1.doubleValue(), py1.doubleValue());
+			drawALine(px3.doubleValue(), py3.doubleValue(),
+					  px1.doubleValue(), py1.doubleValue());
+		}
 	}
 
-	for (int i = 0; i<nbPoint; i++) {
-		triangles.getPoint(i, px1, py1);
-
-		if (DEBUG) {
-			std::cout << "Drawing Point" << i << std::endl;
-			std::cout << px1.printOut() << "," << py1.printOut() << std::endl;
-			std::cout << std::endl;
+	vector<MyPoint> points = triangles.getPoints();
+	int i=0;
+	for (vector<MyPoint>::iterator it = points.begin(); it != points.end(); ++it) {
+		if(it->visible){
+			if (DEBUG) {
+				std::cout << "Drawing Point" << i << std::endl;
+				std::cout << it->x.printOut() << "," << it->y.printOut() << std::endl;
+				std::cout << std::endl;
+			}
+			drawAPoint(it->x.doubleValue(), it->y.doubleValue());
 		}
-
-		drawAPoint(px1.doubleValue(), py1.doubleValue());
+		i++;
 	}
 
 	glPopMatrix();
@@ -165,7 +173,7 @@ void readFile(){
 		linestream >> line_noStr;
 		linestream >> command;         // get the command
 
-		if(!command.compare("AP")){
+		if(!command.compare("IP")){
 			linestream >> numberStr;
 			LongInt p1 = LongInt::LongInt(numberStr.c_str());
 			linestream >> numberStr;
@@ -176,34 +184,12 @@ void readFile(){
 				std::cout << p1.printOut() << "," << p2.printOut() << std::endl;
 				std::cout << std::endl;
 			}
-
-			triangles.addPoint(p1, p2);
-		}
-		else if(!command.compare("OT")){
-			cout << "OT" << endl;
-			linestream >> numberStr;
-			int p1Idx = atoi(numberStr.c_str())-1;
-			linestream >> numberStr;			
-			int p2Idx = atoi(numberStr.c_str())-1;
-			linestream >> numberStr;
-			int p3Idx = atoi(numberStr.c_str())-1;
-
-			if (DEBUG) {
-				std::cout << "Reading tri" << std::endl;
-				std::cout << p1Idx << "," << p2Idx << "," << p3Idx << std::endl;
-				std::cout << std::endl;
+			if(p1 >= minX && p1 <= maxX && p2 >= minY && p2 <= maxY){
+				pointBuffer.push_back(triangles.addPoint(p1,p2));
+			}else{
+				cout << "Point does not fit in window : " << p1.printOut() << "," << p2.printOut() << std::endl;
 			}
-
-			triangles.makeTri(p1Idx, p2Idx, p3Idx, true);
-		}
-		else if(!command.compare("IP")){
-			cout << "IP" << endl;
-			linestream >> numberStr;
-			LongInt px = LongInt::LongInt(numberStr.c_str());
-			linestream >> numberStr;
-			LongInt py = LongInt::LongInt(numberStr.c_str());
-
-			triangles.make3Tri(px,py);
+			glutPostRedisplay();
 		}
 		else if(!command.compare("DY")){
 			linestream >> numberStr;
@@ -211,14 +197,18 @@ void readFile(){
 			if(dy_secs < 0)
 				dy_secs = 0;
 		}
-		else if(!command.compare("DT")){
-			cout << "DT" << endl;
-			triangles.triangulate();
+		else if(!command.compare("CD")){
+			cout << "CD" << endl;
+			for(int i=0; i < pointBuffer.size(); i++){
+				triangles.triangulateByPoint(pointBuffer.at(i));
+			}
+			pointBuffer.clear();
+			glutPostRedisplay();
 		}
 		else{
 			cerr << "Exception: Wrong input command" << endl;
 		}
-		glutPostRedisplay();
+		
 	}
 }
 
@@ -229,18 +219,14 @@ void writeFile()
 	int p1Idx, p2Idx, p3Idx;
 	OrTri tri;
 	LongInt px, py;
-	for(int i=0; i<triangles.noPt(); i++){
-		triangles.getPoint(i,px,py);
-		outputFile << no_line << ": AP " << px.printOut().c_str() << " " << py.printOut().c_str() << endl;
-		no_line++;
+	vector<MyPoint> points = triangles.getPoints();
+	for (vector<MyPoint>::iterator it = points.begin(); it != points.end(); ++it) {
+		if(it->visible){
+			outputFile << no_line << ": IP " << it->x.printOut().c_str() << " " << it->y.printOut().c_str() << endl;
+			no_line++;
+		}
 	}
-	
-	for(int i=0; i<triangles.noTri(); i++){
-		tri = i << 3;
-		triangles.getVertexIdx(tri, p1Idx, p2Idx, p3Idx);
-		outputFile << no_line << ": OT " << p1Idx+1 << " " << p2Idx+1 << " " << p3Idx+1 << endl;
-		no_line++;
-	}
+	outputFile << no_line << ": CD " << endl;
 }
 
 void keyboard (unsigned char key, int x, int y)
@@ -249,6 +235,11 @@ void keyboard (unsigned char key, int x, int y)
 		case 'i':
 		case 'I':
 			k += 0.1;
+			glutPostRedisplay();
+		break;
+
+		case 'c':
+		case 'C':
 			glutPostRedisplay();
 		break;
 
@@ -324,13 +315,13 @@ void mouse(int button, int state, int x, int y)
 	};
 	if((button == MOUSE_RIGHT_BUTTON)&&(state == GLUT_UP))
 	{
-		x = x - GLUT_WINDOW_WIDTH - offset_x/2;
-		y = y - GLUT_WINDOW_HEIGHT - offset_y/2;
+		x = x + minX;
+		y = y + minY;
 		std::cout << "clicked" << std::endl;
-		std::cout << x << std::endl;
-		std::cout << y << std::endl;
-
-		triangles.make3Tri(LongInt::LongInt(x), LongInt::LongInt(y));
+		std::cout << x << ", " << y << std::endl;
+		if(x >= minX && x <= maxX && y >= minY && y <= maxY){ 
+			triangles.addPointUpdate(LongInt::LongInt(x), LongInt::LongInt(y));
+		}
 	}
 
 	glutPostRedisplay();
@@ -350,6 +341,12 @@ int main(int argc, char **argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize (1000, 700);
+
+	minX = -(GLUT_WINDOW_WIDTH + offset_x/2);
+	minY = -(GLUT_WINDOW_HEIGHT + offset_y/2);
+	maxX = 1000 + minX;
+	maxY = 700 + minY;
+	
 	glutInitWindowPosition(50, 50);
 	glutCreateWindow ("CS5237 Phase II");
 	init ();

@@ -11,6 +11,7 @@ struct MyPoint {
 	LongInt x;
 	LongInt y;
 	LongInt z;
+	bool visible;
 };
 
 class PointSet {
@@ -31,6 +32,9 @@ public:
 
 	vector<int> constructCircumTri(); //adds the 3 points into the point set
 	vector<LongInt> minMax(); //first element : min(x), 2nd : min(y), 3rd: max(x), 4th: max(y)
+
+	void setVisibility(int pIdx, bool visibility);
+	vector<MyPoint> getPoints();
 };
 
 #endif

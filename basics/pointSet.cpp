@@ -9,7 +9,7 @@ int PointSet::addPoint(LongInt x1, LongInt y1){
 	thisPoint.x = x1;
 	thisPoint.y = y1;
 	thisPoint.z = 0;
-
+	thisPoint.visible = true;
 	myPoints.push_back(thisPoint);
 	return myPoints.size()-1;
 }
@@ -71,13 +71,20 @@ vector<int> PointSet::constructCircumTri(){
 	points.push_back(addPoint(max_x, max_y + max_x - min_x));
 	cout << "Added points: (" << (min_x - (max_y - min_y)).printOut().c_str() << ", " << min_y.printOut().c_str() << "), (" 
 		<< max_x.printOut().c_str() << ", " << min_y.printOut().c_str() << "), (" << max_x.printOut().c_str() << ", " << (max_y + max_x - min_x).printOut().c_str() << ")" << endl;
+	
+	setVisibility(points.at(0), false);
+	setVisibility(points.at(1), false);
+	setVisibility(points.at(2), false);
 	return points;
 }
 
 vector<LongInt> PointSet::minMax(){
 	vector<LongInt> result;
-	MyPoint p = myPoints.at(0);
-	LongInt min_x(p.x), min_y(p.y), max_x(p.x), max_y(p.y);
+	int tempOffX = 202;
+	int tempOffY = 203;
+	LongInt min_x(-tempOffX), min_y(-tempOffY), max_x(1000 - tempOffX), max_y(700 - tempOffY);
+
+	/*
 	for(vector<MyPoint>::iterator it = myPoints.begin(); it != myPoints.end(); ++it){
 		p = *it;
 		if(min_x > p.x){
@@ -93,9 +100,18 @@ vector<LongInt> PointSet::minMax(){
 			max_y = p.y;
 		}
 	}
+	*/
 	result.push_back(min_x);
 	result.push_back(min_y);
 	result.push_back(max_x);
 	result.push_back(max_y);
 	return result;
+}
+
+void PointSet::setVisibility(int pIdx, bool visibility){
+	myPoints.at(pIdx).visible = visibility;
+}
+
+vector<MyPoint> PointSet::getPoints(){
+	return myPoints;
 }

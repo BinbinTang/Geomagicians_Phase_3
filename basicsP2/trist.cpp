@@ -36,6 +36,7 @@ int Trist::noTri(){
 int Trist::makeTri(int pIndex1,int pIndex2,int pIndex3,bool autoMerge){
 	vector<pair<OrTri,int> > neigh;
 	TriRecord tri;
+	tri.visible = true;
 	maxTriIdx++;
 	int newTriIdx = maxTriIdx;//modifi? avant size+1 (les indices commencent ?0)
 	int tLeft = this->pointSet.turnLeft(pIndex1, pIndex2, pIndex3);
@@ -502,7 +503,8 @@ void Trist::flippingAlg(int pIdx1, int pIdx2){
 
 void Trist::triangulate(){
 	int maxIndx = noPt()-1;
-	vector<int> p = pointSet.constructCircumTri();
+	bigTriangle = pointSet.constructCircumTri();
+	vector<int> p = bigTriangle;
 	vector<int> linkPoints;
 	vector<int> triToDel;
 	makeTri(p.at(0), p.at(1), p.at(2));
@@ -515,17 +517,82 @@ void Trist::triangulate(){
 
 	triToDel = adjacentTriangles(p.at(0));
 	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		delTri(*it << 3 );
+		setVisibility(*it, false);
 	}
 	triToDel = adjacentTriangles(p.at(1));
 	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		delTri(*it << 3);
+		setVisibility(*it, false);
 	}
 	triToDel = adjacentTriangles(p.at(2));
 	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		delTri(*it << 3);
+		setVisibility(*it, false);
 	}
-	pointSet.eraseThreeLastPoints();
+}
+
+void Trist::addPointUpdate(LongInt x, LongInt y){
+	//We assume the last point 
+	int pIdx = addPoint(x,y);
+	vector<int> linkPoints = make3Tri(pIdx);
+	if(linkPoints.empty()){
+		//erase all triangles
+		//triangulate
+		cout << "Point not in triangulation" << endl;
+		records.clear();
+		triangulate();
+	}else{
+		cout << "Point in triangulation" << endl;
+		flippingAlg(linkPoints.at(0), linkPoints.at(1));
+		flippingAlg(linkPoints.at(0), linkPoints.at(2));
+		flippingAlg(linkPoints.at(1), linkPoints.at(2));
+
+		vector<int> triToDel;
+		triToDel = adjacentTriangles(bigTriangle.at(0));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+		triToDel = adjacentTriangles(bigTriangle.at(1));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+		triToDel = adjacentTriangles(bigTriangle.at(2));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+	}
+}
+
+void Trist::triangulateByPoint(int pIdx){
+	if(bigTriangle.empty()){
+		bigTriangle = pointSet.constructCircumTri();
+		makeTri(bigTriangle.at(0), bigTriangle.at(1), bigTriangle.at(2));
+	}
+	vector<int> linkPoints = make3Tri(pIdx);
+	if(linkPoints.empty()){
+		//erase all triangles
+		//triangulate
+		cout << "Point not in triangulation" << endl;
+		records.clear();
+		triangulate();
+	}else{
+		cout << "Point in triangulation" << endl;
+		flippingAlg(linkPoints.at(0), linkPoints.at(1));
+		flippingAlg(linkPoints.at(0), linkPoints.at(2));
+		flippingAlg(linkPoints.at(1), linkPoints.at(2));
+
+		vector<int> triToDel;
+		triToDel = adjacentTriangles(bigTriangle.at(0));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+		triToDel = adjacentTriangles(bigTriangle.at(1));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+		triToDel = adjacentTriangles(bigTriangle.at(2));
+		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+	}
 }
 
 vector<int> Trist::adjacentTriangles(int pIdx){
@@ -538,6 +605,8 @@ vector<int> Trist::adjacentTriangles(int pIdx){
 	}
 	return tri;
 }
+
+
 
 TriRecord* Trist::findTriangle(int tIdx){
 	TriRecord* tri;
@@ -563,4 +632,19 @@ vector<int> Trist::getTriIdx(){
 		triIdx.push_back(it->triIdx);
 	}
 	return triIdx;
+}
+
+void Trist::setVisibility(int triIdx, bool visibility){
+	TriRecord *tri = findTriangle(triIdx);
+	if(tri != NULL){
+		tri->visible = visibility;
+	}
+}
+
+std::vector<TriRecord> Trist::getTriangles(){
+	return records;
+}
+
+std::vector<MyPoint> Trist::getPoints(){
+	return pointSet.getPoints();
 }

@@ -32,11 +32,17 @@ typedef  int FIndex; // The index of a triangle Hint: NOT a triangle if it's neg
 class Trist;
 
 class TriRecord {
-	protected:
+protected:
 		int vi_[3];
 		OrTri fnext_[6];
 		int triIdx;
+		bool visible;
 	friend Trist;
+
+public:
+	bool getVisibility(){ return visible; }
+	int* getVertices(){ return vi_; }
+	int getIdx(){ return triIdx; }
 };
 
 class Trist {
@@ -45,6 +51,7 @@ class Trist {
 		std::vector<TriRecord> records;
 		int maxTriIdx;
 		TriRecord* findTriangle(int tIdx);
+		std::vector<int> bigTriangle;
 	protected:
 		int en_[6];
 
@@ -87,8 +94,12 @@ class Trist {
 		vector<int> flipEdge(int pIdx1, int pIdx2);
 		void flippingAlg(int pIdx1, int pIdx2);
 		void triangulate(); //we assume there is no triangle
-
+		void triangulateByPoint(int pIdx);
+		void addPointUpdate(LongInt x, LongInt y);
 		std::vector<int> getTriIdx();
+		void setVisibility(int triIdx, bool visibility);
+		std::vector<TriRecord> getTriangles();
+		std::vector<MyPoint> getPoints();
 };
 
 
