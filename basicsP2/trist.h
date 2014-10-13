@@ -4,6 +4,7 @@
 #include "pointSetArray.h"
 #include <vector>
 #include "..\basics\li.h"
+
 /*
 
   For a triangle abc, if version 0 is abc
@@ -28,6 +29,15 @@
 typedef  int OrTri;  // The OrTri data structure for a triangle
 typedef  int FIndex; // The index of a triangle Hint: NOT a triangle if it's negative
                      // You should be able to make all the triangle indices to be from 0 to n - 1 (n = number of triangles)
+
+class TriangulateState {
+public:
+	int step = -1;
+	vector<int> linkPoints;
+	std::vector<int> bigTriangle;
+
+	bool isDone() { return step == -1 || step > 3; };
+};
 
 class Trist;
 
@@ -94,7 +104,8 @@ class Trist {
 		vector<int> flipEdge(int pIdx1, int pIdx2);
 		void flippingAlg(int pIdx1, int pIdx2);
 		void triangulate(); //we assume there is no triangle
-		void triangulateByPoint(int pIdx);
+		TriangulateState triangulateByPoint(int pIdx);
+		bool Trist::triangulateByPointStep(TriangulateState &state);
 		void addPointUpdate(LongInt x, LongInt y);
 		std::vector<int> getTriIdx();
 		void setVisibility(int triIdx, bool visibility);

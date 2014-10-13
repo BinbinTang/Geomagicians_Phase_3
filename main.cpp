@@ -13,6 +13,7 @@
 #include <string>
 #include <sstream>
 #include <ctime>
+#include <queue>
 
 using namespace std;
 
@@ -22,11 +23,19 @@ int minX, minY, maxX, maxY;
 float k = 1;
 float tx = 0.0, ty=0.0;
 
+struct command {
+	string name = "";
+	LongInt arg1 = LongInt::LongInt(0);
+	LongInt arg2 = LongInt::LongInt(0);
+};
+
+queue<command> cmdbuffer;
 Trist triangles;
 vector<int> pointBuffer;
 int dy_secs = 0;
+int dy_current = 0;
 
-bool DEBUG = false;
+bool DEBUG = true;
 
 // These three functions are for those who are not familiar with OpenGL, you can change these or even completely ignore them
 
@@ -61,6 +70,83 @@ void drawATriangle(double x1,double y1, double x2, double y2, double x3, double 
 		glEnd();
 }
 
+int currenttime()
+{
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+	int current = (((st.wHour * 60 + st.wMinute) * 60) + st.wSecond) * 1000 + st.wMilliseconds;
+	return current;
+}
+
+bool intriangulate = false;
+int atPoint = 0;
+TriangulateState triState;
+
+void runcmd(command cmd)
+{
+	if (DEBUG)
+		cout << cmd.name << " " << cmd.arg1.printOut() << " " << cmd.arg2.printOut() << endl;
+
+	if (!cmd.name.compare("CD")){
+		if (pointBuffer.size() > 0){
+			intriangulate = true;
+			atPoint = 1;
+			triState = triangles.triangulateByPoint(pointBuffer.at(0));
+		}
+	}
+	else if (!cmd.name.compare("IP")) {
+		if (cmd.arg1 >= minX && cmd.arg1 <= maxX && cmd.arg2 >= minY && cmd.arg2 <= maxY){
+			pointBuffer.push_back(triangles.addPoint(cmd.arg1, cmd.arg2));
+		}
+		else if (DEBUG) {
+			cout << "Point does not fit in window : " << cmd.arg1.printOut() << "," << cmd.arg2.printOut() << std::endl;
+		}
+	}
+}
+
+void updatescene(void)
+{
+	int cur = currenttime();
+	if (dy_secs == 0 || (cur - dy_current > dy_secs * 1000))
+	{
+		if (intriangulate){
+			if (!triState.isDone()){
+				triangles.triangulateByPointStep(triState);
+			}
+			else{
+				if (atPoint < pointBuffer.size()){
+					triState = triangles.triangulateByPoint(pointBuffer.at(atPoint));
+				}
+				else{
+					intriangulate = false;
+					pointBuffer.clear();
+				}
+				atPoint++;
+			}
+			glutPostRedisplay();
+		}
+		else if (cmdbuffer.size() > 0){
+			command cmd = cmdbuffer.front();
+			cmdbuffer.pop();
+			runcmd(cmd);
+			string last_cmd = cmd.name;
+
+			// run multiple similiar commands together
+			while (cmdbuffer.size() != 0){
+				cmd = cmdbuffer.front();
+				if (!cmd.name.compare(last_cmd)){
+					cmdbuffer.pop();
+					runcmd(cmd);
+				}
+				else
+					break;
+			}
+			glutPostRedisplay();
+		}
+		dy_current = cur;
+	}
+}
+
 void display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -86,15 +172,6 @@ void display(void)
 			triangles.getPoint(p1Idx, px1, py1);
 			triangles.getPoint(p2Idx, px2, py2);
 			triangles.getPoint(p3Idx, px3, py3);
-
-			if (DEBUG) {
-				std::cout << "Drawing Tri" << it->getIdx() << std::endl;
-				std::cout << p1Idx << "," << p2Idx << "," << p3Idx << std::endl;
-				std::cout << px1.printOut() << "," << py1.printOut() << std::endl;
-				std::cout << px2.printOut() << "," << py2.printOut() << std::endl;
-				std::cout << px3.printOut() << "," << py3.printOut() << std::endl;
-				std::cout << std::endl;
-			}
 		
 			drawATriangle(px1.doubleValue(), py1.doubleValue(),
 						  px2.doubleValue(), py2.doubleValue(),
@@ -112,11 +189,6 @@ void display(void)
 	int i=0;
 	for (vector<MyPoint>::iterator it = points.begin(); it != points.end(); ++it) {
 		if(it->visible){
-			if (DEBUG) {
-				std::cout << "Drawing Point" << i << std::endl;
-				std::cout << it->x.printOut() << "," << it->y.printOut() << std::endl;
-				std::cout << std::endl;
-			}
 			drawAPoint(it->x.doubleValue(), it->y.doubleValue());
 		}
 		i++;
@@ -148,7 +220,7 @@ void readFile(){
 
 	string line_noStr;
 	string line;   // each line of the file
-	string command;// the command of each line
+	string cmd;// the command of each line
 	string numberStr; // for single LongInt operation
 	string outputAns = "Answer of your computation"; // the answer you computed
 	ifstream inputFile("input.txt",ios::in);
@@ -160,50 +232,38 @@ void readFile(){
 
 	time_t curtime = time(NULL);
 	while(inputFile.good()){
-		Sleep(dy_secs * 1000);
-
 		getline(inputFile,line);
 		if(line.empty()) {
-			command = "";
+			cmd = "";
 			continue; 
 		}// in case the line has nothing in it
 
 		stringstream linestream(line);
 
 		linestream >> line_noStr;
-		linestream >> command;         // get the command
+		linestream >> cmd;         // get the command
 
-		if(!command.compare("IP")){
+		if(!cmd.compare("IP")){
 			linestream >> numberStr;
 			LongInt p1 = LongInt::LongInt(numberStr.c_str());
 			linestream >> numberStr;
 			LongInt p2 = LongInt::LongInt(numberStr.c_str());
-
-			if (DEBUG){
-				std::cout << "Reading point" << std::endl;
-				std::cout << p1.printOut() << "," << p2.printOut() << std::endl;
-				std::cout << std::endl;
-			}
-			if(p1 >= minX && p1 <= maxX && p2 >= minY && p2 <= maxY){
-				pointBuffer.push_back(triangles.addPoint(p1,p2));
-			}else{
-				cout << "Point does not fit in window : " << p1.printOut() << "," << p2.printOut() << std::endl;
-			}
-			glutPostRedisplay();
+			command newcmd;
+			newcmd.name = "IP";
+			newcmd.arg1 = p1;
+			newcmd.arg2 = p2;
+			cmdbuffer.push(newcmd);
 		}
-		else if(!command.compare("DY")){
+		else if(!cmd.compare("DY")){
 			linestream >> numberStr;
 			dy_secs = atof(numberStr.c_str());
 			if(dy_secs < 0)
 				dy_secs = 0;
 		}
-		else if(!command.compare("CD")){
-			cout << "CD" << endl;
-			for(int i=0; i < pointBuffer.size(); i++){
-				triangles.triangulateByPoint(pointBuffer.at(i));
-			}
-			pointBuffer.clear();
-			glutPostRedisplay();
+		else if(!cmd.compare("CD")){
+			command newcmd;
+			newcmd.name = "CD";
+			cmdbuffer.push(newcmd);
 		}
 		else{
 			cerr << "Exception: Wrong input command" << endl;
@@ -301,6 +361,20 @@ void keyboard (unsigned char key, int x, int y)
 	glutPostRedisplay();
 }
 
+void specialkeys(int key, int x, int y)
+{
+	switch (key) {
+	case GLUT_KEY_RIGHT:
+		cout << "ARROW RIGHT" << endl;
+		glutPostRedisplay();
+		break;
+
+	default:
+		break;
+	}
+	glutPostRedisplay();
+}
+
 void mouse(int button, int state, int x, int y)
 {
 	/*button: GLUT_LEFT_BUTTON, GLUT_MIDDLE_BUTTON, or GLUT_RIGHT_BUTTON */
@@ -317,8 +391,10 @@ void mouse(int button, int state, int x, int y)
 	{
 		x = x + minX;
 		y = y + minY;
-		std::cout << "clicked" << std::endl;
-		std::cout << x << ", " << y << std::endl;
+		if (DEBUG) {
+			std::cout << "clicked" << std::endl;
+			std::cout << x << ", " << y << std::endl;
+		}
 		if(x >= minX && x <= maxX && y >= minY && y <= maxY){ 
 			triangles.addPointUpdate(LongInt::LongInt(x), LongInt::LongInt(y));
 		}
@@ -351,9 +427,11 @@ int main(int argc, char **argv)
 	glutCreateWindow ("CS5237 Phase II");
 	init ();
 	glutDisplayFunc(display);
+	glutIdleFunc(updatescene);
 	glutReshapeFunc(reshape);
 	glutMouseFunc(mouse);
 	glutKeyboardFunc(keyboard);
+	glutSpecialUpFunc(specialkeys);
 	glutMainLoop();
 
 	return 0;

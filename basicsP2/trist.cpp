@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <gl/glut.h>
+
 using namespace std;
 
 Trist::Trist()
@@ -493,6 +494,7 @@ vector<int> Trist::flipEdge(int pIdx1, int pIdx2){
 
 void Trist::flippingAlg(int pIdx1, int pIdx2){
 	if(!isLocallyDelaunay(pIdx1, pIdx2)){
+		cout << "flip " << pIdx1 << "," << pIdx2 << endl;
 		vector<int> points = flipEdge(pIdx1, pIdx2);
 		flippingAlg(pIdx1,points.at(0));
 		flippingAlg(pIdx1, points.at(1));
@@ -515,17 +517,11 @@ void Trist::triangulate(){
 		flippingAlg(linkPoints.at(1), linkPoints.at(2));
 	}
 
-	triToDel = adjacentTriangles(p.at(0));
-	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		setVisibility(*it, false);
-	}
-	triToDel = adjacentTriangles(p.at(1));
-	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		setVisibility(*it, false);
-	}
-	triToDel = adjacentTriangles(p.at(2));
-	for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-		setVisibility(*it, false);
+	for (int idx = 0; idx < 3; idx++) {
+		triToDel = adjacentTriangles(p.at(idx));
+		for (vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
 	}
 }
 
@@ -536,32 +532,28 @@ void Trist::addPointUpdate(LongInt x, LongInt y){
 	if(linkPoints.empty()){
 		//erase all triangles
 		//triangulate
-		cout << "Point not in triangulation" << endl;
+		//cout << "Point not in triangulation" << endl;
 		records.clear();
 		triangulate();
 	}else{
-		cout << "Point in triangulation" << endl;
+		//cout << "Point in triangulation" << endl;
 		flippingAlg(linkPoints.at(0), linkPoints.at(1));
 		flippingAlg(linkPoints.at(0), linkPoints.at(2));
 		flippingAlg(linkPoints.at(1), linkPoints.at(2));
 
 		vector<int> triToDel;
-		triToDel = adjacentTriangles(bigTriangle.at(0));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
-		}
-		triToDel = adjacentTriangles(bigTriangle.at(1));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
-		}
-		triToDel = adjacentTriangles(bigTriangle.at(2));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
+		for (int idx = 0; idx < 3; idx++) {
+			triToDel = adjacentTriangles(bigTriangle.at(idx));
+			for (vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+				setVisibility(*it, false);
+			}
 		}
 	}
 }
 
-void Trist::triangulateByPoint(int pIdx){
+TriangulateState Trist::triangulateByPoint(int pIdx){
+	TriangulateState state = TriangulateState();
+
 	if(bigTriangle.empty()){
 		bigTriangle = pointSet.constructCircumTri();
 		makeTri(bigTriangle.at(0), bigTriangle.at(1), bigTriangle.at(2));
@@ -570,29 +562,42 @@ void Trist::triangulateByPoint(int pIdx){
 	if(linkPoints.empty()){
 		//erase all triangles
 		//triangulate
-		cout << "Point not in triangulation" << endl;
+		//cout << "Point not in triangulation" << endl;
 		records.clear();
 		triangulate();
 	}else{
-		cout << "Point in triangulation" << endl;
-		flippingAlg(linkPoints.at(0), linkPoints.at(1));
-		flippingAlg(linkPoints.at(0), linkPoints.at(2));
-		flippingAlg(linkPoints.at(1), linkPoints.at(2));
-
-		vector<int> triToDel;
-		triToDel = adjacentTriangles(bigTriangle.at(0));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
-		}
-		triToDel = adjacentTriangles(bigTriangle.at(1));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
-		}
-		triToDel = adjacentTriangles(bigTriangle.at(2));
-		for(vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-			setVisibility(*it, false);
-		}
+		state.step = 0;
+		state.linkPoints = linkPoints;
+		state.bigTriangle = bigTriangle;
+		//while (!triangulateByPointStep(state)) {
+		//}
 	}
+	return state;
+}
+
+bool Trist::triangulateByPointStep(TriangulateState &state){
+	switch (state.step){
+	case 0:
+		flippingAlg(state.linkPoints.at(0), state.linkPoints.at(1));
+		break;
+	case 1:
+		flippingAlg(state.linkPoints.at(0), state.linkPoints.at(2));
+		break;
+	case 2:
+		flippingAlg(state.linkPoints.at(1), state.linkPoints.at(2));
+		break;
+	case 3:
+		vector<int> triToDel;
+		for (int idx = 0; idx < 3; idx++) {
+			triToDel = adjacentTriangles(state.bigTriangle.at(idx));
+			for (vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+				setVisibility(*it, false);
+			}
+		}
+		break;
+	}
+	state.step++;
+	return state.isDone();
 }
 
 vector<int> Trist::adjacentTriangles(int pIdx){
@@ -605,8 +610,6 @@ vector<int> Trist::adjacentTriangles(int pIdx){
 	}
 	return tri;
 }
-
-
 
 TriRecord* Trist::findTriangle(int tIdx){
 	TriRecord* tri;
