@@ -3,6 +3,7 @@
 
 #include "pointSetArray.h"
 #include <vector>
+#include <set>
 #include "..\basics\li.h"
 
 /*
@@ -36,7 +37,7 @@ public:
 	vector<int> linkPoints;
 	std::vector<int> bigTriangle;
 
-	bool isDone() { return step == -1 || step > 3; };
+	bool isDone() { return step == -1; };
 };
 
 class Trist;
@@ -58,10 +59,18 @@ public:
 class Trist {
 	private : 
 		PointSetArray pointSet;
-		std::vector<TriRecord> records;
+		vector<TriRecord> records;
 		int maxTriIdx;
 		TriRecord* findTriangle(int tIdx);
-		std::vector<int> bigTriangle;
+		vector<int> bigTriangle;
+
+		set<int> pointsOnTri;
+		set<int> lastPointsAddedIdx;
+		set<int> lastTrianglesAddedIdx;
+		set<int> activeEdge;
+		int activePoint = -1;
+		bool flipping = false;
+
 	protected:
 		int en_[6];
 
@@ -104,15 +113,26 @@ class Trist {
 		vector<int> flipEdge(int pIdx1, int pIdx2);
 		void flippingAlg(int pIdx1, int pIdx2);
 		void triangulate(); //we assume there is no triangle
-		TriangulateState triangulateByPoint(int pIdx);
-		bool Trist::triangulateByPointStep(TriangulateState &state);
+		TriangulateState *triangulateByPoint(int pIdx);
+		bool triangulateByPointStep(TriangulateState *state);
+		void hideBigTriangle(TriangulateState *state);
 		void addPointUpdate(LongInt x, LongInt y);
 		std::vector<int> getTriIdx();
 		void setVisibility(int triIdx, bool visibility);
 		std::vector<TriRecord> getTriangles();
 		std::vector<MyPoint> getPoints();
+
+		void clearActive() { activeEdge.clear();
+						     lastPointsAddedIdx.clear();
+							 lastTrianglesAddedIdx.clear(); 
+							 activePoint = -1; };
+		void setActiveEdge(int pIdx1, int pIdx2) { activeEdge.clear(); activeEdge.insert(pIdx1); activeEdge.insert(pIdx2); };
+		void clearActiveEdge() { activeEdge.clear(); };
+		bool isPointOnTri(int pIdx) { return pointsOnTri.count(pIdx) == 1; };
+		bool isPointLastAdded(int pIdx) { return lastPointsAddedIdx.count(pIdx) == 1; };
+		bool isTriangleLastAdded(int tIdx) { return lastTrianglesAddedIdx.count(tIdx) == 1; };
+		bool isActiveEdge(int pIdx1, int pIdx2) { return activeEdge.count(pIdx1) == 1 && activeEdge.count(pIdx2) == 1; };
+		bool isActivePoint(int pIdx) { return activePoint == pIdx; };
 };
-
-
 
 #endif

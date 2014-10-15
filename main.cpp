@@ -34,40 +34,63 @@ Trist triangles;
 vector<int> pointBuffer;
 int dy_secs = 0;
 int dy_current = 0;
+bool jumpnext = false;
+
+bool intriangulate = false;
+int atPoint = 0;
+TriangulateState *triState;
 
 bool DEBUG = true;
 
-// These three functions are for those who are not familiar with OpenGL, you can change these or even completely ignore them
 
-void drawAPoint(double x,double y)
+void drawAPoint(double x, double y, bool isNew = false)
 {
-		glPointSize(5);
-		glBegin(GL_POINTS);
-		glColor3f(0,0,0);
-		glVertex2d(x,y);
-		glEnd();
-		glPointSize(1);
+	glPointSize(5);
+	glBegin(GL_POINTS);
+	if (isNew)
+		glColor3f(0, 1, 0);
+	else
+		glColor3f(0.5, 0.5, 0.5);
+	glVertex2d(x, y);
+	glEnd();
+	glPointSize(1);
 }
 
-void drawALine(double x1,double y1, double x2, double y2)
+void drawAPoint(double x, double y, float r, float g, float b)
 {
-		glPointSize(1);
-		glBegin(GL_LINE_LOOP);
-		glColor3f(0,0,1);
-		glVertex2d(x1,y1);
-		glVertex2d(x2,y2);
-		glEnd();
-		glPointSize(1);
+	glPointSize(5);
+	glBegin(GL_POINTS);
+	glColor3f(r, g, b);
+	glVertex2d(x, y);
+	glEnd();
+	glPointSize(1);
 }
 
-void drawATriangle(double x1,double y1, double x2, double y2, double x3, double y3)
+void drawALine(double x1, double y1, double x2, double y2, bool isNew = false)
 {
-		glBegin(GL_POLYGON);
-		glColor3f(0,0.5,0);
-		glVertex2d(x1,y1);
-		glVertex2d(x2,y2);
-		glVertex2d(x3,y3);
-		glEnd();
+	glPointSize(1);
+	glBegin(GL_LINE_LOOP);
+	if (isNew)
+		glColor3f(0.7, 0.7, 0);
+	else
+		glColor3f(0, 0, 1);
+	glVertex2d(x1, y1);
+	glVertex2d(x2, y2);
+	glEnd();
+	glPointSize(1);
+}
+
+void drawATriangle(double x1, double y1, double x2, double y2, double x3, double y3, bool isNew = false)
+{
+	glBegin(GL_POLYGON);
+	if (isNew)
+		glColor3f(0.75, 0, 0);
+	else
+		glColor3f(0, 0.5, 0);
+	glVertex2d(x1, y1);
+	glVertex2d(x2, y2);
+	glVertex2d(x3, y3);
+	glEnd();
 }
 
 int currenttime()
@@ -77,10 +100,6 @@ int currenttime()
 	int current = (((st.wHour * 60 + st.wMinute) * 60) + st.wSecond) * 1000 + st.wMilliseconds;
 	return current;
 }
-
-bool intriangulate = false;
-int atPoint = 0;
-TriangulateState triState;
 
 void runcmd(command cmd)
 {
@@ -107,17 +126,22 @@ void runcmd(command cmd)
 void updatescene(void)
 {
 	int cur = currenttime();
-	if (dy_secs == 0 || (cur - dy_current > dy_secs * 1000))
+	if (dy_secs == 0 || jumpnext || ((cur - dy_current) >= dy_secs * 1000))
 	{
+		jumpnext = false;
 		if (intriangulate){
-			if (!triState.isDone()){
+			if (!triState->isDone()){
 				triangles.triangulateByPointStep(triState);
 			}
 			else{
 				if (atPoint < pointBuffer.size()){
+					delete triState;
 					triState = triangles.triangulateByPoint(pointBuffer.at(atPoint));
 				}
 				else{
+					triangles.hideBigTriangle(triState);
+					triangles.clearActive();
+					delete triState;
 					intriangulate = false;
 					pointBuffer.clear();
 				}
@@ -160,6 +184,7 @@ void display(void)
 	int nbPoint = triangles.noPt();
 	int p1Idx, p2Idx, p3Idx;
 	LongInt px1, py1, px2, py2, px3, py3;
+	bool isNew = true;
 
 	glTranslated(offset_x,offset_y,0);
 	vector<TriRecord> record = triangles.getTriangles();
@@ -172,24 +197,31 @@ void display(void)
 			triangles.getPoint(p1Idx, px1, py1);
 			triangles.getPoint(p2Idx, px2, py2);
 			triangles.getPoint(p3Idx, px3, py3);
-		
+
+			isNew = triangles.isTriangleLastAdded(it->getIdx());
 			drawATriangle(px1.doubleValue(), py1.doubleValue(),
 						  px2.doubleValue(), py2.doubleValue(),
-						  px3.doubleValue(), py3.doubleValue());
+						  px3.doubleValue(), py3.doubleValue(), isNew);
 			drawALine(px1.doubleValue(), py1.doubleValue(),
-					  px2.doubleValue(), py2.doubleValue());
+					  px2.doubleValue(), py2.doubleValue(), triangles.isActiveEdge(p1Idx, p2Idx));
 			drawALine(px2.doubleValue(), py2.doubleValue(),
-					  px3.doubleValue(), py3.doubleValue());
+					  px3.doubleValue(), py3.doubleValue(), triangles.isActiveEdge(p2Idx, p3Idx));
 			drawALine(px3.doubleValue(), py3.doubleValue(),
-					  px1.doubleValue(), py1.doubleValue());
+					  px1.doubleValue(), py1.doubleValue(), triangles.isActiveEdge(p3Idx, p1Idx));
 		}
 	}
 
 	vector<MyPoint> points = triangles.getPoints();
-	int i=0;
+	int i = 0;
 	for (vector<MyPoint>::iterator it = points.begin(); it != points.end(); ++it) {
 		if(it->visible){
-			drawAPoint(it->x.doubleValue(), it->y.doubleValue());
+			isNew = triangles.isActivePoint(i) || triangles.isPointLastAdded(i);
+			if (isNew)
+				drawAPoint(it->x.doubleValue(), it->y.doubleValue(), isNew);
+			else if (triangles.isPointOnTri(i))
+				drawAPoint(it->x.doubleValue(), it->y.doubleValue(), 0, 0, 0);
+			else
+				drawAPoint(it->x.doubleValue(), it->y.doubleValue());
 		}
 		i++;
 	}
@@ -358,21 +390,21 @@ void keyboard (unsigned char key, int x, int y)
 		default:
 		break;
 	}
-	glutPostRedisplay();
 }
 
 void specialkeys(int key, int x, int y)
 {
 	switch (key) {
 	case GLUT_KEY_RIGHT:
-		cout << "ARROW RIGHT" << endl;
-		glutPostRedisplay();
+		if (dy_secs > 0 && !jumpnext) {
+			jumpnext = true;
+			glutPostRedisplay();
+		}
 		break;
 
 	default:
 		break;
 	}
-	glutPostRedisplay();
 }
 
 void mouse(int button, int state, int x, int y)
@@ -410,6 +442,7 @@ int main(int argc, char **argv)
 	cout <<"i/o: zoom in/out"<<endl;
 	cout <<"l/a: move left/right"<<endl;
 	cout <<"u/d: move up or down"<<endl;
+	cout << "Right arrow to jump to next step" << endl;
 	cout << "q: quit" <<endl;
 	cout << "r: read in control points from \"input.txt\"" <<endl;
 	cout << "w: write control points to \"savefile.txt\"" <<endl;

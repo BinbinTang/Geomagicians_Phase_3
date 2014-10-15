@@ -19,7 +19,9 @@ Trist::Trist()
 }
 
 int Trist::addPoint(LongInt x, LongInt y){
-	return this->pointSet.addPoint(x,y);
+	int idx = this->pointSet.addPoint(x, y);
+	lastPointsAddedIdx.insert(idx);
+	return idx;
 }
 
 int Trist::getPoint (int pIndex, LongInt& x1,LongInt& y1){
@@ -37,6 +39,12 @@ int Trist::noTri(){
 int Trist::makeTri(int pIndex1,int pIndex2,int pIndex3,bool autoMerge){
 	vector<pair<OrTri,int> > neigh;
 	TriRecord tri;
+
+	lastPointsAddedIdx.clear();
+	pointsOnTri.insert(pIndex1);
+	pointsOnTri.insert(pIndex2);
+	pointsOnTri.insert(pIndex3);
+
 	tri.visible = true;
 	maxTriIdx++;
 	int newTriIdx = maxTriIdx;//modifi? avant size+1 (les indices commencent ?0)
@@ -68,6 +76,8 @@ int Trist::makeTri(int pIndex1,int pIndex2,int pIndex3,bool autoMerge){
 			this->fmerge(p.first, (tri.triIdx <<3) | p.second);
 		}
 	}
+
+	lastTrianglesAddedIdx.insert(tri.triIdx);
 	return tri.triIdx;
 }
 
@@ -114,6 +124,9 @@ void Trist::make3Tri(LongInt x, LongInt y){
 	int p3Idx = -1;
 	int pIdx = this->addPoint(x,y);
 	OrTri tri = this->inTriangle(pIdx);
+
+	lastTrianglesAddedIdx.clear();
+
 	if(tri >= 0){
 		this->getVertexIdx(tri, p1Idx, p2Idx, p3Idx);
 		this->delTri(tri);
@@ -130,6 +143,9 @@ vector<int> Trist::make3Tri(int pIdx){
 	int p3Idx = -1;
 	OrTri tri = this->inTriangle(pIdx);
 	vector<int> linkPoints;
+
+	lastTrianglesAddedIdx.clear();
+
 	if(tri >= 0){
 		this->getVertexIdx(tri, p1Idx, p2Idx, p3Idx);
 		this->delTri(tri);
@@ -496,9 +512,11 @@ void Trist::flippingAlg(int pIdx1, int pIdx2){
 	if(!isLocallyDelaunay(pIdx1, pIdx2)){
 		cout << "flip " << pIdx1 << "," << pIdx2 << endl;
 		vector<int> points = flipEdge(pIdx1, pIdx2);
-		flippingAlg(pIdx1,points.at(0));
+		setActiveEdge(points.at(0), points.at(1));
+
+		flippingAlg(pIdx1, points.at(0));
 		flippingAlg(pIdx1, points.at(1));
-		flippingAlg(pIdx2,points.at(0));
+		flippingAlg(pIdx2, points.at(0));
 		flippingAlg(pIdx2, points.at(1));
 	}
 }
@@ -551,14 +569,15 @@ void Trist::addPointUpdate(LongInt x, LongInt y){
 	}
 }
 
-TriangulateState Trist::triangulateByPoint(int pIdx){
-	TriangulateState state = TriangulateState();
+TriangulateState *Trist::triangulateByPoint(int pIdx){
+	TriangulateState *state = new TriangulateState();
 
 	if(bigTriangle.empty()){
 		bigTriangle = pointSet.constructCircumTri();
 		makeTri(bigTriangle.at(0), bigTriangle.at(1), bigTriangle.at(2));
 	}
 	vector<int> linkPoints = make3Tri(pIdx);
+	activePoint = pIdx;
 	if(linkPoints.empty()){
 		//erase all triangles
 		//triangulate
@@ -566,38 +585,50 @@ TriangulateState Trist::triangulateByPoint(int pIdx){
 		records.clear();
 		triangulate();
 	}else{
-		state.step = 0;
-		state.linkPoints = linkPoints;
-		state.bigTriangle = bigTriangle;
-		//while (!triangulateByPointStep(state)) {
-		//}
+		state->step = 0;
+		state->linkPoints = linkPoints;
+		state->bigTriangle = bigTriangle;
 	}
 	return state;
 }
 
-bool Trist::triangulateByPointStep(TriangulateState &state){
-	switch (state.step){
+bool Trist::triangulateByPointStep(TriangulateState *state) {
+	switch (state->step){
 	case 0:
-		flippingAlg(state.linkPoints.at(0), state.linkPoints.at(1));
+		setActiveEdge(state->linkPoints.at(0), state->linkPoints.at(1));
 		break;
 	case 1:
-		flippingAlg(state.linkPoints.at(0), state.linkPoints.at(2));
+		flippingAlg(state->linkPoints.at(0), state->linkPoints.at(1));
 		break;
 	case 2:
-		flippingAlg(state.linkPoints.at(1), state.linkPoints.at(2));
+		setActiveEdge(state->linkPoints.at(0), state->linkPoints.at(2));
 		break;
 	case 3:
-		vector<int> triToDel;
-		for (int idx = 0; idx < 3; idx++) {
-			triToDel = adjacentTriangles(state.bigTriangle.at(idx));
-			for (vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
-				setVisibility(*it, false);
-			}
-		}
+		flippingAlg(state->linkPoints.at(0), state->linkPoints.at(2));
+		break;
+	case 4:
+		setActiveEdge(state->linkPoints.at(1), state->linkPoints.at(2));
+		break;
+	case 5:
+		flippingAlg(state->linkPoints.at(1), state->linkPoints.at(2));
+		break;
+	case 6:
+		clearActiveEdge();
+		state->step = -2;
 		break;
 	}
-	state.step++;
-	return state.isDone();
+	state->step++;
+	return state->isDone();
+}
+
+void Trist::hideBigTriangle(TriangulateState *state){
+	vector<int> triToDel;
+	for (int idx = 0; idx < 3; idx++) {
+		triToDel = adjacentTriangles(state->bigTriangle.at(idx));
+		for (vector<int>::iterator it = triToDel.begin(); it != triToDel.end(); ++it) {
+			setVisibility(*it, false);
+		}
+	}
 }
 
 vector<int> Trist::adjacentTriangles(int pIdx){
