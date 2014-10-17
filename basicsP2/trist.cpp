@@ -5,6 +5,10 @@
 
 using namespace std;
 
+TriangulateState::TriangulateState()
+{
+	step = -1;
+}
 Trist::Trist()
 {
 	en_[0] = 1;
@@ -16,6 +20,16 @@ Trist::Trist()
 	maxTriIdx = 0;
 	this->pointSet = PointSetArray();
 	this->records = vector<TriRecord>();
+	//this->bigTriangle = vector<int>();
+	
+	//this->pointsOnTri = set<int>();
+	//this->lastPointsAddedIdx = set<int>();
+	//this->lastTrianglesAddedIdx = set<int>();
+	//this->activeEdge = set<int>();
+
+	activePoint = -1;
+	flipping = false;
+
 }
 
 int Trist::addPoint(LongInt x, LongInt y){
