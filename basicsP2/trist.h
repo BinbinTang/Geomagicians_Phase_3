@@ -38,6 +38,8 @@ public:
 	std::vector<int> bigTriangle;
 
 	bool isDone() { return step == -1; };
+
+	TriangulateState() { this->step = -1; };
 };
 
 class Trist;

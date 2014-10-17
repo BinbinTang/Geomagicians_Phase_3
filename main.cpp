@@ -27,9 +27,7 @@ struct command {
 	string name;
 	LongInt arg1;
 	LongInt arg2;
-
-	command()
-	{
+	command() {
 		name = "";
 		arg1 = LongInt::LongInt(0);
 		arg2 = LongInt::LongInt(0);
