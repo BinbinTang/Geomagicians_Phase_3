@@ -113,6 +113,7 @@ void runcmd(command cmd)
 
 	if (!cmd.name.compare("CD")){
 		if (pointBuffer.size() > 0){
+			// TIMER COUNTER INITIALISE FOR THIS "CD" STEP
 			intriangulate = true;
 			atPoint = 1;
 			triState = triangles.triangulateByPoint(pointBuffer.at(0));
@@ -135,6 +136,7 @@ void updatescene(void)
 	{
 		jumpnext = false;
 		if (intriangulate){
+			// TIMER START FOR THIS STEP
 			if (!triState->isDone()){
 				triangles.triangulateByPointStep(triState);
 			}
@@ -149,9 +151,11 @@ void updatescene(void)
 					delete triState;
 					intriangulate = false;
 					pointBuffer.clear();
+					// "CD" STEP DONE! ADD THIS TIMER TO GET FINAL TIME FOR TRIANGULATION
 				}
 				atPoint++;
 			}
+			// TIMER STOP FOR THIS STEP, ADD TO TIMER COUNTER
 			glutPostRedisplay();
 		}
 		else if (cmdbuffer.size() > 0){
