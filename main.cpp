@@ -14,6 +14,7 @@
 #include <sstream>
 #include <ctime>
 #include <queue>
+#include "basics\stopWatch.h"
 
 using namespace std;
 
@@ -47,6 +48,9 @@ TriangulateState *triState;
 
 bool DEBUG = true;
 
+int startTime1, startTime2, endTime1, endTime2;
+SYSTEMTIME st_1;
+SYSTEMTIME st_2;
 
 void drawAPoint(double x, double y, bool isNew = false)
 {
@@ -114,6 +118,8 @@ void runcmd(command cmd)
 	if (!cmd.name.compare("CD")){
 		if (pointBuffer.size() > 0){
 			// TIMER COUNTER INITIALISE FOR THIS "CD" STEP
+			GetLocalTime(&st_1);
+			int startTime1 = (((st_1.wHour*60+st_1.wMinute)*60)+st_1.wSecond)*1000+st_1.wMilliseconds;
 			intriangulate = true;
 			atPoint = 1;
 			triState = triangles.triangulateByPoint(pointBuffer.at(0));
@@ -127,6 +133,7 @@ void runcmd(command cmd)
 			cout << "Point does not fit in window : " << cmd.arg1.printOut() << "," << cmd.arg2.printOut() << std::endl;
 		}
 	}
+	cerr << "Overall Length in millisecond: " << endTime2-startTime2+endTime1-startTime1 << endl;
 }
 
 void updatescene(void)
@@ -137,6 +144,8 @@ void updatescene(void)
 		jumpnext = false;
 		if (intriangulate){
 			// TIMER START FOR THIS STEP
+			GetLocalTime(&st_2);
+			int startTime2 = (((st_2.wHour*60+st_2.wMinute)*60)+st_2.wSecond)*1000+st_2.wMilliseconds;
 			if (!triState->isDone()){
 				triangles.triangulateByPointStep(triState);
 			}
@@ -152,10 +161,15 @@ void updatescene(void)
 					intriangulate = false;
 					pointBuffer.clear();
 					// "CD" STEP DONE! ADD THIS TIMER TO GET FINAL TIME FOR TRIANGULATION
+					GetLocalTime(&st_2);
+					int endTime1 = (((st_1.wHour*60+st_1.wMinute)*60)+st_1.wSecond)*1000+st_1.wMilliseconds;
 				}
 				atPoint++;
 			}
 			// TIMER STOP FOR THIS STEP, ADD TO TIMER COUNTER
+			GetLocalTime(&st_2);
+			int endTime2 = (((st_2.wHour*60+st_2.wMinute)*60)+st_2.wSecond)*1000+st_2.wMilliseconds;
+			//cerr << "Overall Length in millisecond(including file output): " << endTime2-startTime2+endTime1-startTime1 << endl;
 			glutPostRedisplay();
 		}
 		else if (cmdbuffer.size() > 0){
@@ -305,10 +319,12 @@ void readFile(){
 			command newcmd;
 			newcmd.name = "CD";
 			cmdbuffer.push(newcmd);
+			//cerr << "Overall Length in millisecond: " << endTime2-startTime2+endTime1-startTime1 << endl;
 		}
 		else{
 			cerr << "Exception: Wrong input command" << endl;
 		}
+		//cerr << "Overall Length in millisecond(including file output): " << endTime2-startTime2+endTime1-startTime1 << endl;
 		
 	}
 }
@@ -431,7 +447,7 @@ void mouse(int button, int state, int x, int y)
 	if((button == MOUSE_RIGHT_BUTTON)&&(state == GLUT_UP))
 	{
 		x = x + minX;
-		y = y + minY;
+		y = y + minY; 
 		if (DEBUG) {
 			std::cout << "clicked" << std::endl;
 			std::cout << x << ", " << y << std::endl;
@@ -439,6 +455,7 @@ void mouse(int button, int state, int x, int y)
 		if(x >= minX && x <= maxX && y >= minY && y <= maxY){ 
 			triangles.addPointUpdate(LongInt::LongInt(x), LongInt::LongInt(y));
 		}
+		cerr << "Overall Length in millisecond: " << endTime2-startTime2+endTime1-startTime1 << endl;
 	}
 
 	glutPostRedisplay();
@@ -465,6 +482,7 @@ int main(int argc, char **argv)
 	maxX = 1000 + minX;
 	maxY = 700 + minY;
 	
+
 	glutInitWindowPosition(50, 50);
 	glutCreateWindow ("CS5237 Phase II");
 	init ();
