@@ -24,9 +24,16 @@ float k = 1;
 float tx = 0.0, ty=0.0;
 
 struct command {
-	string name = "";
-	LongInt arg1 = LongInt::LongInt(0);
-	LongInt arg2 = LongInt::LongInt(0);
+	string name;
+	LongInt arg1;
+	LongInt arg2;
+
+	command()
+	{
+		name = "";
+		arg1 = LongInt::LongInt(0);
+		arg2 = LongInt::LongInt(0);
+	}
 };
 
 queue<command> cmdbuffer;
