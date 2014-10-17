@@ -33,7 +33,7 @@ typedef  int FIndex; // The index of a triangle Hint: NOT a triangle if it's neg
 
 class TriangulateState {
 public:
-	int step = -1;
+	int step;
 	vector<int> linkPoints;
 	std::vector<int> bigTriangle;
 
@@ -68,8 +68,8 @@ class Trist {
 		set<int> lastPointsAddedIdx;
 		set<int> lastTrianglesAddedIdx;
 		set<int> activeEdge;
-		int activePoint = -1;
-		bool flipping = false;
+		int activePoint;
+		bool flipping;
 
 	protected:
 		int en_[6];
